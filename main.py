@@ -18,29 +18,25 @@ def analyze_github(username: str):
     url = f"https://api.github.com/users/{username}"
     try:
         r = requests.get(url)
-        if r.status_code == 200:
-            data = r.json()
-            return {
-                "Username": username,
-                "Profile URL": data.get("html_url", ""),
-                "Public Repos": data.get("public_repos", 0),
-                "Followers": data.get("followers", 0),
-                "Following": data.get("following", 0),
-                "Status": "✅ Found"
-            }
-        elif r.status_code == 404:
-            return {
-                "Username": username,
-                "Profile URL": f"https://github.com/{username}",
-                "Public Repos": "N/A",
-                "Followers": "N/A",
-                "Following": "N/A",
-                "Status": "❌ Not Found"
-            }
-        else:
-            raise HTTPException(status_code=r.status_code, detail="GitHub API error.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        r.raise_for_status()
+        data = r.json()
+        return {
+            "Username": username,
+            "Profile URL": data.get("html_url", ""),
+            "Public Repos": data.get("public_repos", 0),
+            "Followers": data.get("followers", 0),
+            "Following": data.get("following", 0),
+            "Status": "✅ Found"
+        }
+    except:
+        return {
+            "Username": username,
+            "Profile URL": f"https://github.com/{username}",
+            "Public Repos": "N/A",
+            "Followers": "N/A",
+            "Following": "N/A",
+            "Status": "❌ Not Found"
+        }
 
 
 class LeetCodeRequest(BaseModel):
@@ -70,15 +66,12 @@ def analyze_leetcode(request: LeetCodeRequest):
         }
 
         r = requests.post(api_url, headers=headers, data=json.dumps(payload))
-        if r.status_code != 200:
-            raise HTTPException(status_code=r.status_code, detail="LeetCode API error")
-
         data = r.json()
-        matched_user = data.get("data", {}).get("matchedUser")
-        if not matched_user:
-            raise ValueError("User not found")
 
-        stats = matched_user["submitStats"]["acSubmissionNum"]
+        if not data.get("data") or not data["data"].get("matchedUser"):
+            raise ValueError("Invalid or non-existent user")
+
+        stats = data["data"]["matchedUser"]["submitStats"]["acSubmissionNum"]
         return {
             "Username": username,
             "Profile URL": f"https://leetcode.com/{username}/",
@@ -89,13 +82,13 @@ def analyze_leetcode(request: LeetCodeRequest):
             "Status": "✅ Found"
         }
 
-    except Exception as e:
+    except:
         return {
-            "Username": request.url.strip("/").split("/")[-1],
+            "Username": username if 'username' in locals() else "Unknown",
             "Profile URL": request.url,
             "Total Solved": "N/A",
             "Easy Solved": "N/A",
             "Medium Solved": "N/A",
             "Hard Solved": "N/A",
-            "Status": f"❌ Error: {str(e)}"
+            "Status": "❌ Not Found"
         }

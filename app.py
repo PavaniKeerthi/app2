@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
+from urllib.parse import urlparse
 
 st.set_page_config(page_title="Profile Analyzer", layout="centered")
 st.title("🔍 GitHub & LeetCode Profile Analyzer")
@@ -15,9 +16,7 @@ column_map = {
 
 FASTAPI_URL = "https://your-fastapi-service.onrender.com"
 
-
 def extract_github_username(value):
-    from urllib.parse import urlparse
     if "github.com" in value:
         return urlparse(value).path.strip("/")
     return value
@@ -33,15 +32,23 @@ if uploaded_file:
         results = []
 
         for val in df[col].dropna():
-            if platform == "GitHub":
-                username = extract_github_username(val)
-                res = requests.get(f"{FASTAPI_URL}/analyze/github/{username}")
-                results.append(res.json())
+            try:
+                if platform == "GitHub":
+                    username = extract_github_username(val)
+                    res = requests.get(f"{FASTAPI_URL}/analyze/github/{username}")
+                    results.append(res.json())
 
-            elif platform == "LeetCode":
-                payload = {"url": val}
-                res = requests.post(f"{FASTAPI_URL}/analyze/leetcode/", json=payload)
-                results.append(res.json())
+                elif platform == "LeetCode":
+                    payload = {"url": val}
+                    res = requests.post(f"{FASTAPI_URL}/analyze/leetcode/", json=payload)
+                    results.append(res.json())
+
+            except Exception as e:
+                results.append({
+                    "Username": val,
+                    "Error": str(e),
+                    "Status": "❌ Request Failed"
+                })
 
         df_results = pd.DataFrame(results)
         st.dataframe(df_results)
