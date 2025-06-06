@@ -14,7 +14,7 @@ column_map = {
     "LeetCode": "Paste your Leetcode profile link"
 }
 
-FASTAPI_URL = "https://your-fastapi-service.onrender.com"
+FASTAPI_URL = "https://your-fastapi-service.onrender.com"  # Change this!
 
 def extract_github_username(value):
     if "github.com" in value:
@@ -35,19 +35,25 @@ if uploaded_file:
             try:
                 if platform == "GitHub":
                     username = extract_github_username(val)
-                    res = requests.get(f"{FASTAPI_URL}/analyze/github/{username}")
-                    results.append(res.json())
-
-                elif platform == "LeetCode":
+                    res = requests.get(f"{FASTAPI_URL}/analyze/github/{username}", timeout=15)
+                else:
                     payload = {"url": val}
-                    res = requests.post(f"{FASTAPI_URL}/analyze/leetcode/", json=payload)
-                    results.append(res.json())
+                    res = requests.post(f"{FASTAPI_URL}/analyze/leetcode/", json=payload, timeout=15)
 
+                try:
+                    data = res.json()
+                except Exception as e:
+                    data = {
+                        "Username": val,
+                        "Profile URL": val,
+                        "Status": f"❌ Request Failed: {str(e)}"
+                    }
+                results.append(data)
             except Exception as e:
                 results.append({
                     "Username": val,
-                    "Error": str(e),
-                    "Status": "❌ Request Failed"
+                    "Profile URL": val,
+                    "Status": f"❌ Request Failed: {str(e)}"
                 })
 
         df_results = pd.DataFrame(results)

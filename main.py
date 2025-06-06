@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 import requests
 from urllib.parse import urlparse
@@ -6,18 +6,16 @@ import json
 
 app = FastAPI()
 
-
 def extract_github_username(value: str) -> str:
     if "github.com" in value:
         return urlparse(value).path.strip("/")
     return value
 
-
 @app.get("/analyze/github/{username}")
 def analyze_github(username: str):
     url = f"https://api.github.com/users/{username}"
     try:
-        r = requests.get(url)
+        r = requests.get(url, timeout=10)
         r.raise_for_status()
         data = r.json()
         return {
@@ -28,20 +26,18 @@ def analyze_github(username: str):
             "Following": data.get("following", 0),
             "Status": "✅ Found"
         }
-    except:
+    except Exception as e:
         return {
             "Username": username,
             "Profile URL": f"https://github.com/{username}",
             "Public Repos": "N/A",
             "Followers": "N/A",
             "Following": "N/A",
-            "Status": "❌ Not Found"
+            "Status": f"❌ Request Failed: {str(e)}"
         }
-
 
 class LeetCodeRequest(BaseModel):
     url: str
-
 
 @app.post("/analyze/leetcode/")
 def analyze_leetcode(request: LeetCodeRequest):
@@ -51,25 +47,26 @@ def analyze_leetcode(request: LeetCodeRequest):
         headers = {"Content-Type": "application/json"}
         payload = {
             "query": """
-            query getUserProfile($username: String!) {
-              matchedUser(username: $username) {
-                submitStats: submitStatsGlobal {
-                  acSubmissionNum {
-                    difficulty
-                    count
-                  }
+                query getUserProfile($username: String!) {
+                    matchedUser(username: $username) {
+                        submitStats: submitStatsGlobal {
+                            acSubmissionNum {
+                                difficulty
+                                count
+                            }
+                        }
+                    }
                 }
-              }
-            }
             """,
             "variables": {"username": username}
         }
 
-        r = requests.post(api_url, headers=headers, data=json.dumps(payload))
+        r = requests.post(api_url, headers=headers, data=json.dumps(payload), timeout=10)
+        r.raise_for_status()
         data = r.json()
 
         if not data.get("data") or not data["data"].get("matchedUser"):
-            raise ValueError("Invalid or non-existent user")
+            raise ValueError("User not found")
 
         stats = data["data"]["matchedUser"]["submitStats"]["acSubmissionNum"]
         return {
@@ -81,14 +78,13 @@ def analyze_leetcode(request: LeetCodeRequest):
             "Hard Solved": next((item["count"] for item in stats if item["difficulty"] == "Hard"), 0),
             "Status": "✅ Found"
         }
-
-    except:
+    except Exception as e:
         return {
-            "Username": username if 'username' in locals() else "Unknown",
+            "Username": request.url,
             "Profile URL": request.url,
             "Total Solved": "N/A",
             "Easy Solved": "N/A",
             "Medium Solved": "N/A",
             "Hard Solved": "N/A",
-            "Status": "❌ Not Found"
+            "Status": f"❌ Request Failed: {str(e)}"
         }
