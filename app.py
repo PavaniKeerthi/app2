@@ -13,7 +13,7 @@ column_map = {
     "LeetCode": "Paste your Leetcode profile link"
 }
 
-FASTAPI_URL = "FASTAPI_URL = "https://your-fastapi-service.onrender.com"
+FASTAPI_URL = "https://your-fastapi-service.onrender.com"
 
 
 def extract_github_username(value):
